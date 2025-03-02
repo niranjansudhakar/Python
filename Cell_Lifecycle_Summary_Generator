@@ -1,0 +1,41 @@
+import pandas as pd
+
+df = pd.read_csv(r'C:\Users\Niranjan\Documents\LFP-03.csv', skiprows=2)
+
+cycles = df["Cycle C"].unique()
+
+results = []
+
+for cycle in cycles:
+	filtered_dch_df = df[(df["Cycle C"] == cycle) & (df["Current (A)"] < 0)]
+	if filtered_dch_df.empty:
+		print("Data in Cycle number {cycle} is empty.")
+		continue
+	capacity_dch = filtered_dch_df["Capacity (AHr)"].iloc[-1]
+
+	filtered_ch_df = df[(df["Cycle C"] == cycle) & (df["Current (A)"] > 0)]
+	if filtered_ch_df.empty:
+		print("Data in Cycle number {cycle} is empty.")
+		continue
+	capacity_cha = filtered_ch_df["Capacity (AHr)"].iloc[-1]
+
+	filtered_cycle1 = df[df["Cycle C"] == cycle]
+	if filtered_cycle1.empty:
+		print("Data in Cycle number {cycle} is empty.")
+		continue
+	filtered_temp1 = filtered_cycle1["Temp 1"].max()
+
+	filtered_cycle2 = df[df["Cycle C"] == cycle]
+	if filtered_cycle2.empty:
+		print("Data in Cycle number {cycle} is empty.")
+		continue
+	filtered_temp2 = filtered_cycle2["Temp 2"].max()
+
+	max_temp = max(filtered_temp1, filtered_temp2)
+
+	results.append({"Cycle number": cycle, "Discharge capacity": capacity_dch, "Charge capacity": capacity_cha, "Maximum temperature": max_temp})
+
+results_df = pd.DataFrame(results)
+
+output_path = r'C:\Users\Niranjan\Documents\LFP-03-filteredcapacity_temperature.csv'
+results_df.to_csv(output_path, index = False)
