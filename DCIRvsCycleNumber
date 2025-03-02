@@ -1,0 +1,33 @@
+'''
+This code calculates DCIR as a function of cycle number.
+'''
+
+import pandas as pd
+
+df = pd.read_csv(r'C:\Users\Niranjan\Documents\LFP-03.csv', skiprows=2)
+
+cycles = df["Cycle C"].unique()
+
+results = []
+
+for cycle in cycles:
+    filter_step_5 = df[(df["Cycle C"] == cycle) & (df["Step"]==5)]
+    if filter_step_5.empty:
+        print(f"Empty data in Step 5 for cycle {cycle}")
+        continue
+    voltage_step_5 = filter_step_5["Voltage (V)"].iloc[-1]
+
+    filter_step_6 = df[(df["Cycle C"] == cycle) & (df["Step"] == 6)]
+    if filter_step_6.empty:
+        print(f"Empty data in Step 6 for cycle {cycle}")
+        continue
+    voltage_step_6 = filter_step_6["Voltage (V)"].iloc[-1]
+
+    DCIR = (voltage_step_5 - voltage_step_6) / 50
+
+    results.append({"Cycle": cycle, "DCIR": DCIR})
+
+results_df = pd.DataFrame(results)
+
+output_path = r'C:\Users\Niranjan\Documents\LFP-03-filtered1.csv'
+results_df.to_csv(output_path, index=False)
