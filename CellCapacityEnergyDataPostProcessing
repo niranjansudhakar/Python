@@ -1,0 +1,120 @@
+'''
+- I mistakenly wrote the Arbin cycler script as part of a cell lifecycle test program where I did not allow the program to update the cycle counter.
+- Thus, the cycle number continued to be shown as 1 and the cycle-to-cycle charge and discharge capacities did not reset as the cycle number did not increment.
+- For this reason, I wrote this Python script to reset the capacities and energies during charge and discharge in addition to cycle number after each cycle.
+- The corrected cycle number, capacity and energy values gets appended to the original data from the Arbin cycler.
+'''
+
+import pandas as pd
+import enum
+
+
+class State(enum.Enum):
+    Rest1 = "Rest1"  # 0   current
+    Discharge = "Discharge"  # -ve current
+    Rest2 = "Rest2"  # 0   current
+    Charge = "Charge"  # +ve current
+
+
+def is_current_state(state, current):
+    if state == State.Rest1:
+        return current == 0
+    elif state == State.Discharge:
+        return current < 0
+    elif state == State.Rest2:
+        return current == 0
+    elif state == State.Charge:
+        return current > 0
+    else:
+        assert False, f"invalid {state}, {current}"
+
+
+def get_next_state(state):
+    if state == State.Rest1:
+        return State.Discharge
+    elif state == State.Discharge:
+        return State.Rest2
+    elif state == State.Rest2:
+        return State.Charge
+    elif state == State.Charge:
+        return State.Rest1
+    else:
+        assert False, f"invalid {state}"
+
+
+def is_next_state(state, current):
+    return is_current_state(get_next_state(state), current)
+
+
+def fix_index(df):
+    index = 1
+    state = State.Rest1
+    for i in range(len(df)):
+        current = df.loc[i, "Current(A)"]
+        data_point = df.loc[i, "Data_Point"]
+        if is_current_state(state, current):
+            pass
+        elif is_next_state(state, current):
+            old_state = state
+            state = get_next_state(state)
+            print(
+                f"updated state from {old_state} to {state} at data point {data_point}"
+            )
+            if state == State.Rest1:
+                index += 1
+                print(f"updated index to {index} at data point {data_point}")
+        else:
+            assert False, f"invalid {state}, {current}"
+
+        df.loc[i, "Cycle_Index"] = index
+
+
+def fix_summed_column(df, colname):
+    print(f"Fixing summed columns for {colname}")
+    correctedcolname = colname + "_Corrected"
+    df[correctedcolname] = 0.0
+
+    cur_index = 1
+    to_subtract = 0.0
+    for i in range(len(df)):
+        summed_value = df.loc[i, colname]
+        index = df.loc[i, "Cycle_Index"]
+        data_point = df.loc[i, "Data_Point"]
+        if index != cur_index:
+            cur_index = index
+            to_subtract = summed_value
+            print(
+                f"updating value to subtract to {to_subtract} at index {index} and data point {data_point}"
+            )
+
+        df.loc[i, correctedcolname] = summed_value - to_subtract
+
+
+def get_last_datapoints(df):
+    return df.groupby("Cycle_Index").last()
+
+
+def main():
+    df = pd.read_excel("input.xlsx")
+    fix_index(df)
+    fix_summed_column(df, "Charge_Capacity(Ah)")
+    fix_summed_column(df, "Discharge_Capacity(Ah)")
+    fix_summed_column(df, "Charge_Energy(Wh)")
+    fix_summed_column(df, "Discharge_Energy(Wh)")
+    df.to_excel("output.xlsx")
+
+    df2 = get_last_datapoints(df)
+    print(df2)
+    df2.to_excel("output2.xlsx")
+
+
+main()
+
+
+"""
+index   pattern
+2       0s, -vs, 0s, +vs
+3       0s, -vs, 0s, +vs
+4       0s, -vs, 0s, +vs
+
+"""
