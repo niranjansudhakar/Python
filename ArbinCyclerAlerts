@@ -1,0 +1,271 @@
+'''
+- I have simulated 2 cell cycler channels on Arbin with one of the cycler channels hitting the voltage safety limit during charging. 
+- Once the parameter hits the safety limit, the test is stopped and the channel goes to the critical channels list. This simulates an alert to a user. We can create custom email and text message alerts as well.
+- I have created a spoofed Arbin server to retrieve data. However, we can update the IP address and Port in CYCLER_INTERFACE_CONFIG to retrieve data from a real Arbin cycler.  
+'''
+
+import time
+import threading
+import tkinter as tk
+from pyctiarbin import CyclerInterface
+import pandas as pd
+import socket
+
+# Cycler Interface Configuration
+CYCLER_INTERFACE_CONFIG = {
+    "ip_address": "127.0.0.1",  # Replace with your cycler's IP
+    "port": 8990,              # Port used by the cycler
+    "timeout_s": 3,
+    "msg_buffer_size": 4096
+}
+
+# Global Flags
+stop_flag = False
+channel_3_critical = False  # Stop increment for Channel 3 once critical
+
+# Safety Thresholds
+VOLTAGE_SAFETY_THRESHOLD = 4.2  # Voltage safety threshold
+TEMPERATURE_SAFETY_THRESHOLD = 60  # Temperature safety threshold in °C
+
+# Simulated Values (For Fake Data)
+channel_3_voltage = 2.0  # Start voltage for Channel 3
+channel_3_temperature = 30.0  # Start temperature for Channel 3
+channel_5_voltage = 3.8  # Fixed voltage for Channel 5
+channel_5_temperature = 40.0  # Fixed temperature for Channel 5
+
+
+# Spoofed Server
+def start_spoofed_server():
+    """
+    Starts a simple TCP/IP server to spoof the Arbin connection.
+    """
+    HOST = CYCLER_INTERFACE_CONFIG["ip_address"]
+    PORT = CYCLER_INTERFACE_CONFIG["port"]
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((HOST, PORT))
+    server_socket.listen(5)  # Allow up to 5 connections
+    print(f"Spoofed server is running on {HOST}:{PORT}")
+
+    try:
+        while not stop_flag:
+            client_socket, address = server_socket.accept()
+            print(f"Connection established with {address}")
+
+            # Receive a request from the client
+            request = client_socket.recv(1024).decode('utf-8')
+            print(f"Received from client: {request}")
+
+            # Simulated response
+            if "read_channel_status" in request:
+                response = '{"Channel": 3, "voltage_v": 3.7, "aux_temperature": [35], "status": "Running"}'
+            else:
+                response = "Simulated response from spoofed server"
+
+            client_socket.sendall(response.encode('utf-8'))
+            client_socket.close()
+    except Exception as e:
+        print(f"Spoofed server error: {e}")
+    finally:
+        server_socket.close()
+
+
+# Function to simulate increasing values for Channel 3
+def simulate_increasing_values():
+    global channel_3_voltage, channel_3_temperature, channel_3_critical
+    while not stop_flag:
+        if not channel_3_critical:
+            # Smaller increments for smoother changes
+            if channel_3_voltage < 5.0:
+                channel_3_voltage = round(channel_3_voltage + 0.05, 2)  # Smaller voltage increment
+            if channel_3_temperature < 65.0:
+                channel_3_temperature = round(channel_3_temperature + 0.5, 1)  # Smaller temperature increment
+        time.sleep(2)  # Slower simulation speed
+
+
+
+# Function to check channel statuses
+def check_statuses(active_channels, use_fake_data=False):
+    statuses = []
+    for channel in active_channels:
+        if use_fake_data:
+            if channel == 3:
+                statuses.append({
+                    "Channel": 3,
+                    "voltage_v": channel_3_voltage,
+                    "aux_temperature": [channel_3_temperature],
+                    "status": "Running",
+                    "comm_failure": 0,
+                    "schedule": "Test Schedule"
+                })
+            elif channel == 5:
+                statuses.append({
+                    "Channel": 5,
+                    "voltage_v": channel_5_voltage,
+                    "aux_temperature": [channel_5_temperature],
+                    "status": "Running",
+                    "comm_failure": 0,
+                    "schedule": "Test Schedule"
+                })
+        else:
+            try:
+                statuses.append({"Channel": channel, **cycler_interface.read_channel_status(channel=channel)})
+            except Exception as e:
+                statuses.append({"Channel": channel, "status": "Error", "details": str(e)})
+
+    # Convert statuses to a DataFrame
+    df = pd.DataFrame(statuses)
+    df["temperature"] = df["aux_temperature"].apply(lambda x: x[0] if isinstance(x, list) and x else None)
+    return df[["Channel", "status", "schedule", "comm_failure", "voltage_v", "temperature"]]
+
+
+# Function to format CyclerInterface features as a table (support fake data)
+def format_logs_table(active_channels, use_fake_data=False):
+    log_data = []  # List to store data for the table
+    try:
+        for channel in active_channels:
+            if use_fake_data and channel == 3:
+                # Use simulated values for Channel 3
+                log_data.append({
+                    "Channel": channel,
+                    "Status": "Running",
+                    "Voltage (V)": f"{channel_3_voltage:.1f}",
+                    "Temperature (°C)": f"{channel_3_temperature:.1f}",
+                    "Comm Failure": 0,
+                    "Schedule": "Test Schedule"
+                })
+            elif use_fake_data and channel == 5:
+                # Use constant values for Channel 5
+                log_data.append({
+                    "Channel": channel,
+                    "Status": "Running",
+                    "Voltage (V)": f"{channel_5_voltage:.1f}",
+                    "Temperature (°C)": f"{channel_5_temperature:.1f}",
+                    "Comm Failure": 0,
+                    "Schedule": "Test Schedule"
+                })
+            else:
+                # Use real data for other channels
+                status = cycler_interface.read_channel_status(channel)
+                log_data.append({
+                    "Channel": channel,
+                    "Status": status.get("status", "N/A"),
+                    "Voltage (V)": f"{status.get('voltage_v', 'N/A'):.1f}",
+                    "Temperature (°C)": f"{status.get('aux_temperature', 'N/A'):.1f}",
+                    "Comm Failure": status.get("comm_failure", "N/A"),
+                    "Schedule": status.get("schedule", "N/A")
+                })
+    except Exception as e:
+        log_data.append({"Channel": "Error", "Status": str(e)})
+
+    # Convert the data to a DataFrame for tabular formatting
+    df = pd.DataFrame(log_data)
+    return df
+
+
+# Real-time monitoring loop
+def monitoring_loop(critical_gui, feature_gui, use_fake_data=True):
+    global stop_flag, channel_3_critical
+    active_channels = [3, 5]
+
+    while not stop_flag:
+        df_filtered = check_statuses(active_channels, use_fake_data=use_fake_data)
+
+        # Separate into critical and properly running channels
+        critical_message = "Critical Channels:\n"
+
+        # Generate the feature logs as a table
+        feature_logs_table = format_logs_table(active_channels, use_fake_data=use_fake_data)
+
+        for _, row in df_filtered.iterrows():
+            if row["comm_failure"] > 0 or row["voltage_v"] > VOLTAGE_SAFETY_THRESHOLD or row["temperature"] > TEMPERATURE_SAFETY_THRESHOLD:
+                critical_message += f"Channel {row['Channel']} - Voltage: {row['voltage_v']}, Temperature: {row['temperature']}\n"
+                if row["Channel"] == 3:
+                    channel_3_critical = True  # Stop increment for Channel 3
+
+        # Update GUIs
+        critical_gui.update(critical_message if "Channel" in critical_message else "No critical issues detected.")
+        feature_gui.update(feature_logs_table.to_string(index=False))  # Convert DataFrame to a string
+
+        time.sleep(3)
+
+
+# GUI for Critical Channels
+class CriticalChannelsGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Critical Channels")
+        self.root.geometry("500x300+800+100")  # Moved farther to the right
+        self.label = tk.Label(root, text="Critical Channels", font=("Arial", 16, "bold"))
+        self.label.pack(pady=10)
+        self.text_box = tk.Text(root, width=60, height=15)
+        self.text_box.pack(pady=10)
+
+    def update(self, message):
+        self.text_box.delete(1.0, tk.END)
+        self.text_box.insert(tk.END, message)
+
+
+# GUI for Feature Logs
+class FeatureLogsGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("CyclerInterface Feature Logs")
+        self.root.geometry("600x400+100+100")  # Position on screen (left, top)
+        self.label = tk.Label(root, text="Feature Logs", font=("Arial", 16, "bold"))
+        self.label.pack(pady=10)
+        self.text_box = tk.Text(root, width=80, height=20)
+        self.text_box.pack(pady=10)
+
+    def update(self, table):
+        self.text_box.delete(1.0, tk.END)
+        self.text_box.insert(tk.END, table)
+
+
+# Main function
+def main():
+    global stop_flag
+
+    # Start the spoofed server in a separate thread
+    spoofed_server_thread = threading.Thread(target=start_spoofed_server)
+    spoofed_server_thread.daemon = True
+    spoofed_server_thread.start()
+
+    # Start simulation thread
+    simulation_thread = threading.Thread(target=simulate_increasing_values)
+    simulation_thread.daemon = True
+    simulation_thread.start()
+
+    # Create GUI windows
+    root_features = tk.Tk()
+    root_critical = tk.Toplevel()
+
+    feature_gui = FeatureLogsGUI(root_features)
+    critical_gui = CriticalChannelsGUI(root_critical)
+
+    # Bring windows to the front and make them active
+    root_features.lift()
+    root_critical.lift()
+    root_features.attributes('-topmost', True)
+    root_critical.attributes('-topmost', True)
+    root_features.attributes('-topmost', False)
+    root_critical.attributes('-topmost', False)
+
+    def on_closing():
+        global stop_flag
+        stop_flag = True
+        root_features.destroy()
+
+    root_features.protocol("WM_DELETE_WINDOW", on_closing)
+    root_critical.protocol("WM_DELETE_WINDOW", on_closing)
+
+    # Start monitoring loop
+    monitoring_thread = threading.Thread(target=monitoring_loop, args=(critical_gui, feature_gui))
+    monitoring_thread.daemon = True
+    monitoring_thread.start()
+
+    root_features.mainloop()
+
+
+if __name__ == "__main__":
+    main()
