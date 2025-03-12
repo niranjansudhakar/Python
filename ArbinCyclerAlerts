@@ -1,7 +1,9 @@
 '''
 - I have simulated 2 cell cycler channels on Arbin with one of the cycler channels hitting the voltage safety limit during charging. 
 - Once the parameter hits the safety limit, the test is stopped and the channel goes to the critical channels list. This simulates an alert to a user. We can create custom email and text message alerts as well.
-- I have created a spoofed Arbin server to retrieve data. However, we can update the IP address and Port in CYCLER_INTERFACE_CONFIG to retrieve data from a real Arbin cycler.  
+- I have created a spoofed Arbin server to retrieve data. However, we can update the IP address and Port in CYCLER_INTERFACE_CONFIG to retrieve data from a real Arbin cycler.
+- I got help from ChatGPT to generate this code. I had to change my requirements slowly to add the features one at a time. AI was helpful particularly to configure the communication protocol so the cycler and channel interface can communicate efficiently.
+- This code is cool as the binary messages are also padded so it respects the communication protocol of the cycler and channel interfaces. Since ChatGPT is not perfect, I had to debug the code myself in some areas.
 '''
 
 import time
