@@ -6,10 +6,9 @@
 
 import os
 import pandas as pd
-
 # Filtering for R1
-
 def main():
+   
     directory_path = input("Enter the folder path containing your CSV files:").strip()
     if not os.path.isdir(directory_path):
         print("Invalid folder path. Exiting...")
@@ -17,73 +16,71 @@ def main():
         print(f"Processing data files in: {directory_path}")
         results = []
         for file in os.listdir(directory_path):
-            if file.endswith(".csv"):
+            if file.endswith(".xlsx"):
                 file_path = os.path.join(directory_path, file)
                 print(f"Processing: {file}")
-                df = pd.read_csv(file_path, skiprows=2)
-                cycles = df["Cycle C"].unique()
-
-        for cycle in cycles:
-            # Charge step 1
-            filtered_Step1Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 10)]
-            filtered_Step16Rest = df[(df["Cycle C"] == cycle) & (df["Step"] == 16)]
-            if filtered_Step16Rest.empty or filtered_Step1Charge.empty:
-                continue
-            TestTime_Step1Charge = filtered_Step1Charge["Step Time"].iloc[-1]
-            Voltage_Step1Charge = filtered_Step1Charge["Voltage"].iloc[min(len(df), 2) - 1]
-            Voltage_PrevCycleDischarge = filtered_Step16Rest["Voltage"].iloc[-1]
-            dV = Voltage_Step1Charge - Voltage_PrevCycleDischarge
-            results.append({"File": file, "Cycle": cycle, "Charge Step #": 1, "Overpotential": dV,
-                            "Charge time": TestTime_Step1Charge})
-
-        for cycle in cycles:
-            # Charge step 2
-            filtered_Step2Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 11)]
-            filtered_Step1Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 10)]
-            if filtered_Step2Charge.empty or filtered_Step1Charge.empty:
-                continue
-            TestTime_Step2Charge = filtered_Step2Charge["Step Time"].iloc[-1]
-            Voltage_Step2Charge = filtered_Step2Charge["Voltage"].iloc[min(len(df), 11) - 1]
-            Voltage_Step1Charge = filtered_Step1Charge["Voltage"].iloc[-1]
-            dV = Voltage_Step2Charge - Voltage_Step1Charge
-            results.append({"File": file, "Cycle": cycle, "Charge Step #": 2, "Overpotential": dV,
-                            "Charge time": TestTime_Step2Charge})
-
-        for cycle in cycles:
-            # Charge step 3
-            filtered_Step3Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 12)]
-            filtered_Step2Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 11)]
-            if filtered_Step3Charge.empty or filtered_Step2Charge.empty:
-                continue
-            TestTime_Step3Charge = filtered_Step3Charge["Step Time"].iloc[-1]
-            Voltage_Step3Charge = filtered_Step3Charge["Voltage"].iloc[min(len(df), 11) - 1]
-            Voltage_Step2Charge = filtered_Step2Charge["Voltage"].iloc[-1]
-            dV = Voltage_Step3Charge - Voltage_Step2Charge
-            results.append({"File": file, "Cycle": cycle, "Charge Step #": 3, "Overpotential": dV,
-                            "Charge time": TestTime_Step3Charge})
-
-        for cycle in cycles:
-            # Charge step 4
-            filtered_Step4Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 13)]
-            filtered_Step3Charge = df[(df["Cycle C"] == cycle) & (df["Step"] == 12)]
-            if filtered_Step3Charge.empty or filtered_Step4Charge.empty:
-                continue
-            TestTime_Step4Charge = filtered_Step4Charge["Step Time"].iloc[-1]
-            Voltage_Step4Charge = filtered_Step4Charge["Voltage"].iloc[min(len(df), 2) - 1]
-            Voltage_Step3Charge = filtered_Step3Charge["Voltage"].iloc[-1]
-            dV = Voltage_Step4Charge - Voltage_Step3Charge
-            results.append({"File": file, "Cycle": cycle, "Charge Step #": 4, "Overpotential": dV,
-                            "Charge time": TestTime_Step4Charge})
-
+                df = pd.read_excel(file_path, sheet_name= "Data", skiprows = 0)
+                cycles = df["Cyc#"].unique()
+                for cycle in cycles:
+                                # Charge step 1
+                    filtered_Step1Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 33)]
+                    filtered_Step39Rest = df[(df["Cyc#"] == cycle) & (df["Step"] == 39)]
+                    if filtered_Step39Rest.empty or filtered_Step1Charge.empty:
+                        continue
+                    TestTime_Step1Charge = filtered_Step1Charge["StepTime"].iloc[-1]
+                    Voltage_Step1Charge = filtered_Step1Charge["Volts"].iloc[min(len(df), 2)-1]
+                    Voltage_PrevCycleDischarge = filtered_Step39Rest["Volts"].iloc[-1]
+                    dV = Voltage_Step1Charge - Voltage_PrevCycleDischarge
+        
+                    results.append({"File": file, "Cycle": cycle, "Charge Step #": 1, "Overpotential": dV, "Charge time": TestTime_Step1Charge})
+        
+                for cycle in cycles:
+                    # Charge step 2
+                    filtered_Step2Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 34)]
+                    filtered_Step1Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 33)]
+                    if filtered_Step2Charge.empty or filtered_Step1Charge.empty:
+                        continue
+                    TestTime_Step2Charge = filtered_Step2Charge["StepTime"].iloc[-1]
+                    Voltage_Step2Charge = filtered_Step2Charge["Volts"].iloc[min(len(df), 11)-1]
+                    Voltage_Step1Charge = filtered_Step1Charge["Volts"].iloc[-1]
+                    dV = Voltage_Step2Charge - Voltage_Step1Charge
+        
+                    results.append({"File": file, "Cycle": cycle, "Charge Step #": 2, "Overpotential": dV, "Charge time": TestTime_Step2Charge})
+        
+                for cycle in cycles:
+                    # Charge step 3
+                    filtered_Step3Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 35)]
+                    filtered_Step2Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 34)]
+                    if filtered_Step3Charge.empty or filtered_Step2Charge.empty:
+                        continue
+                    TestTime_Step3Charge = filtered_Step3Charge["StepTime"].iloc[-1]
+                    Voltage_Step3Charge = filtered_Step3Charge["Volts"].iloc[min(len(df), 11)-1]
+                    Voltage_Step2Charge = filtered_Step2Charge["Volts"].iloc[-1]
+                    dV = Voltage_Step3Charge - Voltage_Step2Charge
+        
+                    results.append({"File": file, "Cycle": cycle, "Charge Step #": 3, "Overpotential": dV, "Charge time": TestTime_Step3Charge})
+        
+                for cycle in cycles:
+                    # Charge step 4
+                    filtered_Step4Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 36)]
+                    filtered_Step3Charge = df[(df["Cyc#"] == cycle) & (df["Step"] == 35)]
+                    if filtered_Step3Charge.empty or filtered_Step4Charge.empty:
+                        continue
+                    TestTime_Step4Charge = filtered_Step4Charge["StepTime"].iloc[-1]
+                    Voltage_Step4Charge = filtered_Step4Charge["Volts"].iloc[min(len(df), 2)-1]
+                    Voltage_Step3Charge = filtered_Step3Charge["Volts"].iloc[-1]
+                    dV = Voltage_Step4Charge - Voltage_Step3Charge
+        
+                    results.append({"File": file, "Cycle": cycle, "Charge Step #": 4, "Overpotential": dV, "Charge time": TestTime_Step4Charge})
+    
     if results:
-
-        output_file = os.path.join(directory_path, "Results.csv")
-        pd.DataFrame(results).to_csv(output_file, index=False)
-        print(f"Results saved to: {output_file}")
+            output_file = os.path.join(directory_path, "Results.csv")
+            pd.DataFrame(results).to_csv(output_file, index = False)
+            print(f"Results saved to: {output_file}")
     else:
-        print("No data to save")
-
+            print("No data to save")
+ 
+ 
 if __name__ == "__main__":
     print(__name__)
-
     main()
